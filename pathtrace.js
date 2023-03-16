@@ -85,6 +85,15 @@ class Pathtrace {
     }
 
     /**
+     * Return a pair of width and height, as close as possible to the actual canvas pixel size.
+     */
+    getCanvasSize() {
+        const dpr = window.devicePixelRatio;
+        const {width, height} = this.canvas.getBoundingClientRect();
+        return [Math.round(width * dpr), Math.round(height * dpr)];
+    }
+
+    /**
      * Set camera control vectors in the uniform attributes
      */
     setupCameraUniforms(origin, forward, up, right) {
@@ -98,16 +107,29 @@ class Pathtrace {
     }
 
     render() {
+        const [w, h] = this.getCanvasSize();
+        this.canvas.width = w;
+        this.canvas.height = h;
+
+        console.log("rendering", w, h);
+        const cameraParams = Pathtrace.calculateCamera(
+            [0, 1, -0.1],
+            1.5,
+            1 / Math.min(w, h)
+        );
+
+        this.gl.viewport(0, 0, w, h);
+        this.setupCameraUniforms([0, 0, 1.8], ...cameraParams);
+
         this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
-        //requestAnimationFrame(render);
     }
 
     async main() {
         let vertexShaderPromise = downloadFile("shader.vert");
         let fragmentShaderPromise = downloadFile("shader.frag");
 
-        const canvas = await Pathtrace.findCanvas();
-        this.gl = canvas.getContext('webgl');
+        this.canvas = await Pathtrace.findCanvas();
+        this.gl = this.canvas.getContext('webgl');
 
         const vertexShader = this.createShader(this.gl.VERTEX_SHADER, await vertexShaderPromise);
         const fragmentShader = this.createShader(this.gl.FRAGMENT_SHADER, await fragmentShaderPromise);
@@ -118,21 +140,14 @@ class Pathtrace {
 
         this.createVertexPositions();
 
-        this.gl.viewport(0, 0, this.gl.drawingBufferWidth, this.gl.drawingBufferHeight);
         this.gl.clearColor(0, 0, 0, 0);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
 
         this.gl.useProgram(this.program);
 
-        const cameraParams = Pathtrace.calculateCamera(
-            [0, 1, -0.1],
-            1.5,
-            1 / Math.min(this.gl.drawingBufferWidth, this.gl.drawingBufferHeight)
-        );
-
-        this.setupCameraUniforms([0, 0, 1.8], ...cameraParams);
-
         this.render();
+
+        window.addEventListener("resize", this.render.bind(this));
     }
 
 }
