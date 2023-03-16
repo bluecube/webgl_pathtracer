@@ -236,29 +236,41 @@ Ray make_camera_ray(vec2 pixelPosition) {
     return ret;
 }
 
+/// Trace a single ray into the scene, return color collected
+vec3 trace_ray(Ray ray) {
+    vec3 color = vec3(0);
+    vec3 weight = vec3(1);
+
+    for (uint j = 0u; j < DEPTH; ++j) {
+        IntersectionResult intersection = ray_scene_intersection(ray);
+        if (intersection.distance >= FAR_AWAY) {
+            color += weight * vec3(0.2); // Some ambient difuse light
+            break;
+        }
+
+        MaterialSample material = sample_material(intersection);
+
+        color += weight * material.emission;
+        weight *= material.reflection;
+        ray.origin = intersection.pos;
+        ray.direction = material.nextSampleDirection;
+    }
+
+    return color;
+}
+
+/// Trace all samples of the single pixel, return final color
+vec3 render_pixel(vec2 pixelPosition) {
+    vec3 color = vec3(0.0);
+    for (uint i = 0u; i < SAMPLE_COUNT; ++i) {
+        Ray ray = make_camera_ray(pixelPosition);
+        color += trace_ray(ray);
+    }
+    return color / float(SAMPLE_COUNT);
+}
+
 void main() {
     seed_pcg(uint(gl_FragCoord.x) + uint(gl_FragCoord.y) * uint(u_resolution.x));
 
-    vec3 color = vec3(0.0);
-    for (uint i = 0u; i < SAMPLE_COUNT; ++i) {
-        Ray ray = make_camera_ray(gl_FragCoord.xy);
-        vec3 weight = vec3(1);
-
-        for (uint j = 0u; j < DEPTH; ++j) {
-            IntersectionResult intersection = ray_scene_intersection(ray);
-            if (intersection.distance >= FAR_AWAY) {
-                color += weight * vec3(0.2); // Some ambient difuse light
-                break;
-            }
-
-            MaterialSample material = sample_material(intersection);
-
-            color += weight * material.emission;
-            weight *= material.reflection;
-            ray.origin = intersection.pos;
-            ray.direction = material.nextSampleDirection;
-        }
-    }
-
-    o_fragColor = vec4(color / float(SAMPLE_COUNT), 1.0);
+    o_fragColor = vec4(render_pixel(gl_FragCoord.xy), 1.0);
 }
