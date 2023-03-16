@@ -42,7 +42,7 @@ struct MaterialSample {
 
 /// Generate two arbitrary vectors that form an orthonormal basis with v1.
 /// Based on https://graphics.pixar.com/library/OrthonormalB/paper.pdf
-void orthonormal_base(vec3 v1, out vec3 v2, out vec3 v3) {
+void orthonormal_basis(vec3 v1, out vec3 v2, out vec3 v3) {
     float sign = (v1.z >= 0.0 ? 1.0 : 0.0);
     float a = -1.0 / (sign + v1.z);
     float b = v1.x * v1.y * a;
@@ -90,7 +90,7 @@ vec3 rand_cosine_weighted_hemispherical_surface_along_z() {
 /// The random points are cosine weighted.
 vec3 rand_cosine_weighted_hemispherical_surface(vec3 direction) {
     vec3 base1, base2;
-    orthonormal_base(direction, base1, base2);
+    orthonormal_basis(direction, base1, base2);
     vec3 x = rand_cosine_weighted_hemispherical_surface_along_z();
     return direction * x.z + base1 * x.y + base2 * x.x;
 }
