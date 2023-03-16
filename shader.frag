@@ -1,3 +1,5 @@
+#version 300 es
+
 // Sentinel value for not finding any intersection
 #define FAR_AWAY 1e9
 

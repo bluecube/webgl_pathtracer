@@ -141,7 +141,7 @@ class Pathtrace {
         let fragmentShaderPromise = downloadFile("shader.frag");
 
         this.canvas = await Pathtrace.findCanvas();
-        this.gl = this.canvas.getContext('webgl');
+        this.gl = this.canvas.getContext('webgl2');
 
         const vertexShader = this.createShader(this.gl.VERTEX_SHADER, await vertexShaderPromise);
         const fragmentShader = this.createShader(this.gl.FRAGMENT_SHADER, await fragmentShaderPromise);
