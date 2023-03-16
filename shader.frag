@@ -21,6 +21,10 @@ struct IntersectionResult {
     int material;
 };
 
+struct MaterialSample {
+    vec3 color;
+};
+
 IntersectionResult ray_sphere_intersection(vec3 center, float radius, Ray ray) {
     vec3 oc = ray.origin - center;
     float b_half = dot(oc, ray.direction);
@@ -117,6 +121,32 @@ IntersectionResult ray_scene_intersection(Ray ray) {
     return ret;
 }
 
+MaterialSample sample_material(IntersectionResult intersection) {
+    if (intersection.material == 2) {
+        const float size = 0.5;
+        const float halfLineThickness = 0.01;
+
+        vec2 p = intersection.pos.xy / size;
+        vec2 cellCoords = p - floor(p);
+
+        vec2 border1 = step(cellCoords, vec2(halfLineThickness)) + step(vec2(1.0 - halfLineThickness), cellCoords);
+        float border2 = max(border1.x, border1.y);
+
+        MaterialSample ret;
+        ret.color = vec3(0.0, 1.0, 0.0) * border2;
+        return ret;
+
+    } if (intersection.material == 3) {
+        MaterialSample ret;
+        ret.color = vec3(1.0, 0.0, 0.0);
+        return ret;
+    } else {
+        MaterialSample ret;
+        ret.color = vec3(0.5);
+        return ret;
+    }
+}
+
 Ray make_camera_ray(vec2 pixelPosition) {
     pixelPosition -= u_resolution / 2.0;
 
@@ -135,13 +165,13 @@ void main() {
     Ray ray = make_camera_ray(gl_FragCoord.xy);
 
     IntersectionResult intersection = ray_scene_intersection(ray);
+    MaterialSample material = sample_material(intersection);
 
     if (intersection.distance < FAR_AWAY) {
-        float c = 0.2 - dot(ray.direction, intersection.normal) / 2.0;
-        //float c = intersection.distance / 3.0;
+        float shading = clamp(-dot(ray.direction, intersection.normal), 0.0, 1.0);
 
-        gl_FragColor = vec4(vec3(c), 1);
+        gl_FragColor = vec4(material.color * shading, 1.0);
     } else {
-        gl_FragColor = vec4(0.1, 0.3, 0.1, 1);
+        gl_FragColor = vec4(0.0, 0.0, 0.0, 1);
     }
 }
