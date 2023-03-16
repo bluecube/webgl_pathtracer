@@ -94,16 +94,28 @@ class Pathtrace {
     }
 
     /**
+     * Finds all active uniforms in the program and collects their locations in
+     * uniformLoc map.
+     */
+    findUniforms(names) {
+        const count = this.gl.getProgramParameter(this.program, this.gl.ACTIVE_UNIFORMS);
+        this.uniformLoc = new Map();
+
+        for (let i = 0; i < count; i++) {
+            const name = this.gl.getActiveUniform(this.program, i).name;
+            this.uniformLoc.set(name, this.gl.getUniformLocation(this.program, name));
+        }
+    }
+
+    /**
      * Set camera control vectors in the uniform attributes
      */
-    setupCameraUniforms(origin, forward, up, right) {
-
-        this.gl.uniform2f(this.gl.getUniformLocation(this.program, 'u_resolution'), this.gl.drawingBufferWidth, this.gl.drawingBufferHeight);
-
-        this.gl.uniform3fv(this.gl.getUniformLocation(this.program, 'u_cameraOrigin'), origin);
-        this.gl.uniform3fv(this.gl.getUniformLocation(this.program, 'u_cameraForward'), forward);
-        this.gl.uniform3fv(this.gl.getUniformLocation(this.program, 'u_cameraUp'), up);
-        this.gl.uniform3fv(this.gl.getUniformLocation(this.program, 'u_cameraRight'), right);
+    setupCameraUniforms(w, h, origin, forward, up, right) {
+        this.gl.uniform2f(this.uniformLoc.get("u_resolution"), w, h);
+        this.gl.uniform3fv(this.uniformLoc.get("u_cameraOrigin"), origin);
+        this.gl.uniform3fv(this.uniformLoc.get("u_cameraForward"), forward);
+        this.gl.uniform3fv(this.uniformLoc.get("u_cameraUp"), up);
+        this.gl.uniform3fv(this.uniformLoc.get("u_cameraRight"), right);
     }
 
     render() {
@@ -119,7 +131,7 @@ class Pathtrace {
         );
 
         this.gl.viewport(0, 0, w, h);
-        this.setupCameraUniforms([0, 0, 1.8], ...cameraParams);
+        this.setupCameraUniforms(w, h, [0, 0, 1.8], ...cameraParams);
 
         this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
     }
@@ -135,6 +147,7 @@ class Pathtrace {
         const fragmentShader = this.createShader(this.gl.FRAGMENT_SHADER, await fragmentShaderPromise);
 
         this.program = this.createProgram([vertexShader, fragmentShader]);
+        this.findUniforms();
 
         const resolutionUniformLocation = this.gl.getUniformLocation(this.program, 'u_resolution');
 
