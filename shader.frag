@@ -1,9 +1,18 @@
 #version 300 es
 
-// Sentinel value for not finding any intersection
-#define FAR_AWAY 1e9
-
 precision mediump float;
+
+// Sentinel value for not finding any intersection
+const float FAR_AWAY = 1e9;
+const float TWO_PI = 6.283185307179586;
+const uint SAMPLE_COUNT = 100u;
+const uint DEPTH = 10u;
+
+const int MatSolidWhite = 1;
+const int MatGlowing = 2;
+const int MatGrid = 3;
+const int MatRed = 4;
+
 uniform vec2 u_resolution;
 uniform vec3 u_cameraOrigin;
 uniform vec3 u_cameraForward;
@@ -26,8 +35,20 @@ struct IntersectionResult {
 };
 
 struct MaterialSample {
-    vec3 color;
+    vec3 reflection;
+    vec3 emission;
+    vec3 nextSampleDirection;
 };
+
+/// Generate two arbitrary vectors that form an orthonormal basis with v1.
+/// Based on https://graphics.pixar.com/library/OrthonormalB/paper.pdf
+void orthonormal_base(vec3 v1, out vec3 v2, out vec3 v3) {
+    float sign = (v1.z >= 0.0 ? 1.0 : 0.0);
+    float a = -1.0 / (sign + v1.z);
+    float b = v1.x * v1.y * a;
+    v2 = vec3(1.0 + sign * v1.x * v1.x * a, sign * b, -sign * v1.x);
+    v3 = vec3(b, sign + v1.y * v1.y * a, -v1.y);
+}
 
 /// Taken from https://www.reedbeta.com/blog/hash-functions-for-gpu-rendering/
 uint rand_pcg() {
@@ -44,12 +65,34 @@ void seed_pcg(uint seed) {
     rand_pcg();
 }
 
+/// Generate random float in <0, 1)
 float rand_float() {
     return float(rand_pcg()) / (float(~0u) + 1.0);
 }
 
+/// Generate two random floats in <0, 1)
 vec2 rand_vec2() {
     return vec2(rand_float(), rand_float());
+}
+
+/// Generate a random unit vector on a hemispherical surface centered around +Z.
+/// The random points are cosine weighted.
+/// Based on https://www.rorydriscoll.com/2009/01/07/better-sampling/
+vec3 rand_cosine_weighted_hemispherical_surface_along_z() {
+    float a = rand_float();
+    float r = sqrt(a);
+    float theta = TWO_PI * rand_float();
+    return vec3(r * cos(theta), r * sin(theta), sqrt(1.0 - a));
+}
+
+/// Generate a random unit vector on a hemispherical surface centered around `direction`.
+/// Direction must be normalized.
+/// The random points are cosine weighted.
+vec3 rand_cosine_weighted_hemispherical_surface(vec3 direction) {
+    vec3 base1, base2;
+    orthonormal_base(direction, base1, base2);
+    vec3 x = rand_cosine_weighted_hemispherical_surface_along_z();
+    return direction * x.z + base1 * x.y + base2 * x.x;
 }
 
 IntersectionResult ray_sphere_intersection(vec3 center, float radius, Ray ray) {
@@ -132,46 +175,50 @@ IntersectionResult ray_scene_intersection(Ray ray) {
     }
 
     // bottom sphere
-    OBJ(ray_sphere_intersection(vec3(-1.0, 5, 0.5), 0.5, ray), 0);
+    OBJ(ray_sphere_intersection(vec3(-1.0, 5, 0.5), 0.5, ray), MatSolidWhite);
 
     // top sphere
-    OBJ(ray_sphere_intersection(vec3(-1.0, 5, 1.5), 0.5, ray), 1);
+    OBJ(ray_sphere_intersection(vec3(-1.0, 5, 1.5), 0.5, ray), MatGlowing);
 
     // floor
-    OBJ(ray_plane_intersection(vec3(0.0), vec3(0.0, 0.0, 1.0), ray), 2);
+    OBJ(ray_plane_intersection(vec3(0.0), vec3(0.0, 0.0, 1.0), ray), MatGrid);
 
     // a random triangle
-    OBJ(ray_triangle_intersection(vec3(1.0, 4.0, 1.2), vec3(-1.0, 1.0, 0.0), vec3(0.0, 0.0, -1.2), ray), 3);
+    OBJ(ray_triangle_intersection(vec3(1.0, 4.0, 1.2), vec3(-1.0, 1.0, 0.0), vec3(0.0, 0.0, -1.2), ray), MatRed);
 
 #undef OBJ
 
     return ret;
 }
 
+/// Return 1.0 if point p is within halfLineThickness of axis aligned square grid.
+float square_grid(vec2 p, float size, float halfLineThickness) {
+    p = p / size;
+    vec2 cellCoords = p - floor(p);
+    vec2 border = step(cellCoords, vec2(halfLineThickness)) + step(vec2(1.0 - halfLineThickness), cellCoords);
+    return max(border.x, border.y);
+}
+
+/// Evaluate a material at a given intersection
 MaterialSample sample_material(IntersectionResult intersection) {
-    if (intersection.material == 2) {
-        const float size = 0.5;
-        const float halfLineThickness = 0.01;
+    MaterialSample ret;
+    ret.nextSampleDirection = rand_cosine_weighted_hemispherical_surface(intersection.normal);
+    ret.emission = vec3(0);
 
-        vec2 p = intersection.pos.xy / size;
-        vec2 cellCoords = p - floor(p);
-
-        vec2 border1 = step(cellCoords, vec2(halfLineThickness)) + step(vec2(1.0 - halfLineThickness), cellCoords);
-        float border2 = max(border1.x, border1.y);
-
-        MaterialSample ret;
-        ret.color = vec3(0.0, 1.0, 0.0) * border2;
-        return ret;
-
-    } if (intersection.material == 3) {
-        MaterialSample ret;
-        ret.color = vec3(1.0, 0.0, 0.0);
-        return ret;
+    if (intersection.material == MatGlowing) {
+        ret.emission = vec3(1.2, 1.11, 1.05) * 0.5;
+        ret.reflection = vec3(0.5);
+    } else if (intersection.material == MatGrid) {
+        float onGrid = square_grid(intersection.pos.xy, 0.5, 0.02);
+        ret.emission = onGrid * vec3(0.0, 0.2, 0); // The green lines glow a bit!
+        ret.reflection = mix(vec3(0.4), vec3(0.1), onGrid);
+    } else if (intersection.material == MatRed) {
+        ret.reflection = vec3(0.7, 0.0, 0.0);
     } else {
-        MaterialSample ret;
-        ret.color = vec3(0.5);
-        return ret;
+        ret.reflection = vec3(0.5);
     }
+
+    return ret;
 }
 
 Ray make_camera_ray(vec2 pixelPosition) {
@@ -192,21 +239,26 @@ Ray make_camera_ray(vec2 pixelPosition) {
 void main() {
     seed_pcg(uint(gl_FragCoord.x) + uint(gl_FragCoord.y) * uint(u_resolution.x));
 
-    const int sampleCount = 1000;
     vec3 color = vec3(0.0);
-    for (int i = 0; i < sampleCount; ++i) {
+    for (uint i = 0u; i < SAMPLE_COUNT; ++i) {
         Ray ray = make_camera_ray(gl_FragCoord.xy);
-        IntersectionResult intersection = ray_scene_intersection(ray);
-        MaterialSample material = sample_material(intersection);
+        vec3 weight = vec3(1);
 
-        if (intersection.distance < FAR_AWAY) {
-            float shading = clamp(-dot(ray.direction, intersection.normal), 0.0, 1.0);
+        for (uint j = 0u; j < DEPTH; ++j) {
+            IntersectionResult intersection = ray_scene_intersection(ray);
+            if (intersection.distance >= FAR_AWAY) {
+                color += weight * vec3(0.2); // Some ambient difuse light
+                break;
+            }
 
-            color += vec3(material.color * shading);
-        } else {
-            color += vec3(0.0, 0.0, 0.0);
+            MaterialSample material = sample_material(intersection);
+
+            color += weight * material.emission;
+            weight *= material.reflection;
+            ray.origin = intersection.pos;
+            ray.direction = material.nextSampleDirection;
         }
     }
 
-    o_fragColor = vec4(color / float(sampleCount), 1.0);
+    o_fragColor = vec4(color / float(SAMPLE_COUNT), 1.0);
 }
