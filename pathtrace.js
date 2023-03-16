@@ -38,10 +38,61 @@ function createVertexPositions(gl, program) {
     gl.vertexAttribPointer(positionAttributeLocation, 4, gl.FLOAT, false, 0, 0);
 }
 
+/**
+ * Return a promise that takes the value of the #canvas element once the window is loaded.
+ */
 function findCanvas() {
     return new Promise((resolve, reject) => {
         window.addEventListener("load", resolve)
     }).then(() => document.getElementById("canvas"));
+}
+
+function crossProduct(v1, v2) {
+    return [
+        v1[1] * v2[2] - v1[2] * v2[1],
+        v1[2] * v2[0] - v1[0] * v2[2],
+        v1[0] * v2[1] - v1[1] * v2[0]
+    ];
+}
+
+function normalize(v) {
+    var len = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+    if (len === 0) {
+        return [0, 0, 0];
+    }
+    return [v[0] / len, v[1] / len, v[2] / len];
+}
+
+function scale(v, s) {
+    return v.map(x => x * s);
+}
+
+/**
+ * Calculate camera forward, up and right vectors from a forward vector.
+ * Outputs are mutually perpendicular, camera is oriented going up along the Z axis.
+ * Forward is scaled by forwardScale, up and right are by upRightScale.
+ */
+function calculateCamera(forward, forwardScale, upRightScale) {
+    const right = normalize(crossProduct(forward, [0, 0, 1]));
+    const up = normalize(crossProduct(right, forward));
+    return [
+        scale(normalize(forward), forwardScale),
+        scale(up, upRightScale),
+        scale(right, upRightScale)
+    ];
+}
+
+/**
+ * Set camera control vectors in the uniform attributes
+ */
+function setupCameraUniforms(gl, program, origin, forward, up, right) {
+
+    gl.uniform2f(gl.getUniformLocation(program, 'u_resolution'), gl.drawingBufferWidth, gl.drawingBufferHeight);
+
+    gl.uniform3fv(gl.getUniformLocation(program, 'u_cameraOrigin'), origin);
+    gl.uniform3fv(gl.getUniformLocation(program, 'u_cameraForward'), forward);
+    gl.uniform3fv(gl.getUniformLocation(program, 'u_cameraUp'), up);
+    gl.uniform3fv(gl.getUniformLocation(program, 'u_cameraRight'), right);
 }
 
 function render(gl) {
@@ -69,7 +120,14 @@ async function main() {
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     gl.useProgram(program);
-    gl.uniform2f(resolutionUniformLocation, gl.drawingBufferWidth, gl.drawingBufferHeight);
+
+    cameraParams = calculateCamera(
+        [0, 1, -0.1],
+        1.5,
+        1 / Math.min(gl.drawingBufferWidth, gl.drawingBufferHeight)
+    );
+
+    setupCameraUniforms(gl, program, [0, 0, 1.8], ...cameraParams);
 
     render(gl);
 }
