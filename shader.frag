@@ -5,11 +5,13 @@
 
 precision mediump float;
 uniform vec2 u_resolution;
-
 uniform vec3 u_cameraOrigin;
 uniform vec3 u_cameraForward;
 uniform vec3 u_cameraUp;
 uniform vec3 u_cameraRight;
+out vec4 o_fragColor;
+
+uint rngState;
 
 struct Ray {
     vec3 origin;
@@ -26,6 +28,29 @@ struct IntersectionResult {
 struct MaterialSample {
     vec3 color;
 };
+
+/// Taken from https://www.reedbeta.com/blog/hash-functions-for-gpu-rendering/
+uint rand_pcg() {
+    uint state = rngState;
+    rngState = rngState * 747796405u + 2891336453u;
+    uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return (word >> 22u) ^ word;
+}
+
+void seed_pcg(uint seed) {
+    rngState = 0u;
+    rand_pcg();
+    rngState += seed;
+    rand_pcg();
+}
+
+float rand_float() {
+    return float(rand_pcg()) / (float(~0u) + 1.0);
+}
+
+vec2 rand_vec2() {
+    return vec2(rand_float(), rand_float());
+}
 
 IntersectionResult ray_sphere_intersection(vec3 center, float radius, Ray ray) {
     vec3 oc = ray.origin - center;
@@ -151,6 +176,7 @@ MaterialSample sample_material(IntersectionResult intersection) {
 
 Ray make_camera_ray(vec2 pixelPosition) {
     pixelPosition -= u_resolution / 2.0;
+    pixelPosition += rand_vec2();
 
     Ray ret;
     ret.origin = u_cameraOrigin;
@@ -164,16 +190,23 @@ Ray make_camera_ray(vec2 pixelPosition) {
 }
 
 void main() {
-    Ray ray = make_camera_ray(gl_FragCoord.xy);
+    seed_pcg(uint(gl_FragCoord.x) + uint(gl_FragCoord.y) * uint(u_resolution.x));
 
-    IntersectionResult intersection = ray_scene_intersection(ray);
-    MaterialSample material = sample_material(intersection);
+    const int sampleCount = 1000;
+    vec3 color = vec3(0.0);
+    for (int i = 0; i < sampleCount; ++i) {
+        Ray ray = make_camera_ray(gl_FragCoord.xy);
+        IntersectionResult intersection = ray_scene_intersection(ray);
+        MaterialSample material = sample_material(intersection);
 
-    if (intersection.distance < FAR_AWAY) {
-        float shading = clamp(-dot(ray.direction, intersection.normal), 0.0, 1.0);
+        if (intersection.distance < FAR_AWAY) {
+            float shading = clamp(-dot(ray.direction, intersection.normal), 0.0, 1.0);
 
-        gl_FragColor = vec4(material.color * shading, 1.0);
-    } else {
-        gl_FragColor = vec4(0.0, 0.0, 0.0, 1);
+            color += vec3(material.color * shading);
+        } else {
+            color += vec3(0.0, 0.0, 0.0);
+        }
     }
+
+    o_fragColor = vec4(color / float(sampleCount), 1.0);
 }
