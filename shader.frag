@@ -47,6 +47,46 @@ IntersectionResult ray_plane_intersection(vec3 point, vec3 normal, Ray ray) {
     return ret;
 }
 
+/// Möller–Trumbore ray-triangle intersection algorithm
+/// Modified from https://github.com/erich666/jgt-code/blob/master/Volume_02/Number_1/Moller1997a/raytri.c
+IntersectionResult ray_triangle_intersection(vec3 vert0, vec3 edge1, vec3 edge2, Ray ray) {
+    IntersectionResult ret;
+    ret.distance = FAR_AWAY;
+
+    vec3 pvec = cross(ray.direction, edge2);
+
+    float det = dot(edge1, pvec);
+
+    if (det > -1e-6 && det < 1e-6)
+        return ret; // ray is parallell to the plane of the triangle
+        // TODO: This if det is very small, invDet will be very lareg and the u
+        // and v tests will fail later. This branch is probably not necessary
+
+    float invDet = 1.0 / det;
+
+    // calculate distance from vert0 to ray origin
+    vec3 tvec = ray.origin - vert0;
+
+    // calculate U parameter and test bounds
+    float u = dot(tvec, pvec) * invDet;
+    if (u < 0.0 || u > 1.0)
+        return ret; // TODO: Try adding some combination `step()` of `u` * FAR_AWAY to the result instead of returning early
+
+    // prepare to test V parameter
+    vec3 qvec = cross(tvec, edge1);
+
+    // calculate V parameter and test bounds
+    float v = dot(ray.direction, qvec) * invDet;
+    if (v < 0.0 || u + v > 1.0)
+        return ret; // TODO: As above, get rid of branch
+
+    // calculate t, ray intersects triangle
+    ret.distance = dot(edge2, qvec) * invDet;
+    ret.normal = normalize(cross(edge1, edge2));
+    ret.pos = ray.origin + ret.distance * ray.direction;
+    return ret;
+}
+
 IntersectionResult ray_scene_intersection(Ray ray) {
     IntersectionResult ret;
     ret.distance = FAR_AWAY;
@@ -68,6 +108,9 @@ IntersectionResult ray_scene_intersection(Ray ray) {
 
     // floor
     OBJ(ray_plane_intersection(vec3(0.0), vec3(0.0, 0.0, 1.0), ray), 2);
+
+    // a random triangle
+    OBJ(ray_triangle_intersection(vec3(1.0, 4.0, 1.2), vec3(-1.0, 1.0, 0.0), vec3(0.0, 0.0, -1.2), ray), 3);
 
 #undef OBJ
 
