@@ -13,6 +13,7 @@ const int MatSolidWhite = 1;
 const int MatGlowing = 2;
 const int MatGrid = 3;
 const int MatRed = 4;
+const int MatMirror = 5;
 
 uniform vec2 u_resolution;
 uniform vec3 u_cameraOrigin;
@@ -168,10 +169,10 @@ IntersectionResult ray_scene_intersection(Ray ray) {
     OBJ(ray_triangle_intersection((o), (v1), (v2), ray), (m)); \
     OBJ(ray_triangle_intersection((o) + (v1) + (v2), (-v1), (-v2), ray), (m));
 
-#define HALF_BOX(o, v1, v2, v3, m12, m23, m13) \
-    PARALLELOGRAM((o), (v1), (v2), (m12)); \
-    PARALLELOGRAM((o), (v1), (v3), (m13)); \
-    PARALLELOGRAM((o), (v2), (v3), (m23));
+#define HALF_BOX(o, v1, v2, v3, m21, m32, m31) \
+    PARALLELOGRAM((o), (v2), (v1), (m21)); \
+    PARALLELOGRAM((o), (v3), (v2), (m32)); \
+    PARALLELOGRAM((o), (v1), (v3), (m31));
 
     // bottom sphere
     OBJ(ray_sphere_intersection(vec3(-1.0, 5, 0.5), 0.5, ray), MatSolidWhite);
@@ -183,7 +184,7 @@ IntersectionResult ray_scene_intersection(Ray ray) {
     OBJ(ray_plane_intersection(vec3(0.0), vec3(0.0, 0.0, 1.0), ray), MatGrid);
 
     // a (half) box
-    HALF_BOX(vec3(1.0, 4.0, 1.2), vec3(-1.0, 1.0, 0.0), vec3(1.0, 1.0, 0.0), vec3(0.0, 0.0, -1.2), MatRed, MatRed, MatRed);
+    HALF_BOX(vec3(1.0, 4.3, 1.2), vec3(-0.8, 1.1, 0.0), vec3(1.1, 0.8, 0.0), vec3(0.0, 0.0, -1.2), MatSolidWhite, MatRed, MatMirror);
 
 #undef OBJ
 #undef PARALLELOGRAM
@@ -215,6 +216,9 @@ MaterialSample sample_material(Ray ray, IntersectionResult intersection) {
         ret.reflection = vec3(0.9);//mix(vec3(0.4), vec3(0.1), onGrid);
     } else if (intersection.material == MatRed) {
         ret.reflection = vec3(0.7, 0.0, 0.0);
+    } else if (intersection.material == MatMirror) {
+        ret.reflection = vec3(0.9);
+        ret.nextSampleDirection = reflect(ray.direction, intersection.normal);
     } else {
         ret.reflection = vec3(0.5);
     }
