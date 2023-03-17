@@ -133,7 +133,11 @@ class Pathtrace {
         this.gl.viewport(0, 0, w, h);
         this.setupCameraUniforms(w, h, [0, 0, 1.8], ...cameraParams);
 
+        const startTime = performance.now();
         this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
+        this.gl.finish();
+        const elapsed = performance.now() - startTime;
+        console.log(`Render took ${elapsed} milliseconds`);
     }
 
     async main() {
