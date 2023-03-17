@@ -201,18 +201,18 @@ float square_grid(vec2 p, float size, float halfLineThickness) {
 }
 
 /// Evaluate a material at a given intersection
-MaterialSample sample_material(IntersectionResult intersection) {
+MaterialSample sample_material(Ray ray, IntersectionResult intersection) {
     MaterialSample ret;
     ret.nextSampleDirection = rand_cosine_weighted_hemispherical_surface(intersection.normal);
     ret.emission = vec3(0);
 
     if (intersection.material == MatGlowing) {
-        ret.emission = vec3(1.2, 1.11, 1.05) * 0.5;
+        ret.emission = vec3(1.2, 1.11, 1.05) * 1.0 * max(0.0, dot(intersection.normal, -ray.direction));
         ret.reflection = vec3(0.5);
     } else if (intersection.material == MatGrid) {
         float onGrid = square_grid(intersection.pos.xy, 0.5, 0.02);
-        ret.emission = onGrid * vec3(0.0, 0.2, 0); // The green lines glow a bit!
-        ret.reflection = mix(vec3(0.4), vec3(0.1), onGrid);
+        ret.emission = onGrid * vec3(0.0, 0.1, 0); // The green lines glow a bit!
+        ret.reflection = vec3(0.9);//mix(vec3(0.4), vec3(0.1), onGrid);
     } else if (intersection.material == MatRed) {
         ret.reflection = vec3(0.7, 0.0, 0.0);
     } else {
@@ -249,7 +249,7 @@ vec3 trace_ray(Ray ray) {
             break;
         }
 
-        MaterialSample material = sample_material(intersection);
+        MaterialSample material = sample_material(ray, intersection);
 
         color += weight * material.emission;
         weight *= material.reflection;
