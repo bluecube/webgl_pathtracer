@@ -123,7 +123,6 @@ class Pathtrace {
         this.canvas.width = w;
         this.canvas.height = h;
 
-        console.log("rendering", w, h);
         const cameraParams = Pathtrace.calculateCamera(
             [0, 1, -0.1],
             1.5,
@@ -137,7 +136,8 @@ class Pathtrace {
         this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
         this.gl.finish();
         const elapsed = performance.now() - startTime;
-        console.log(`Render took ${elapsed} milliseconds`);
+        console.log(`Render at ${w}x${h} took ${elapsed} milliseconds`);
+        return elapsed;
     }
 
     async main() {
@@ -162,7 +162,14 @@ class Pathtrace {
 
         this.gl.useProgram(this.program);
 
-        this.render();
+        if (0) {
+            var best = 1e9;
+            const count = 20;
+            for (var i = 0; i < count; i++)
+                best = Math.min(this.render(), best);
+            console.log(`Best render out of ${count} took ${best} milliseconds`);
+        } else
+            this.render();
 
         window.addEventListener("resize", this.render.bind(this));
     }
