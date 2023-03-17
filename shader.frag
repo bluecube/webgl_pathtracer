@@ -7,7 +7,7 @@ const float FAR_AWAY = 1e9;
 const float EPSILON = 1e-6;
 const float TWO_PI = 6.283185307179586;
 const uint SAMPLE_COUNT = 100u;
-const uint DEPTH = 10u;
+const uint DEPTH = 20u;
 
 const int MatSolidWhite = 1;
 const int MatGlowing = 2;
@@ -39,6 +39,13 @@ struct IntersectionResult {
 struct MaterialSample {
     vec3 reflection;
     vec3 emission;
+    vec3 nextSampleDirection;
+};
+
+struct FogSample {
+    float scattered;
+    vec3 scatterPos;
+    vec3 transmission;
     vec3 nextSampleDirection;
 };
 
@@ -80,6 +87,12 @@ vec2 rand_vec2() {
 /// Generate two random floats in <0, 1)
 vec3 rand_vec3() {
     return vec3(rand_float(), rand_float(), rand_float());
+}
+
+vec3 rand_direction() {
+    float phi = acos(2.0 * rand_float() - 1.0);
+    float theta = TWO_PI * rand_float();
+    return vec3(sin(phi) * cos(theta), sin(phi) * sin(theta), cos(phi));
 }
 
 /// Generate a random unit vector on a hemispherical surface centered around +Z.
@@ -192,6 +205,9 @@ IntersectionResult ray_scene_intersection(Ray ray) {
     // a (half) box
     HALF_BOX(vec3(1.0, 4.3, 1.2), vec3(-0.8, 1.1, 0.0), vec3(1.1, 0.8, 0.0), vec3(0.0, 0.0, -1.2), MatSolidWhite, MatRed, MatMirror);
 
+    // Sphere in the back
+    OBJ(ray_sphere_intersection(vec3(0.0, 20.0, 0.6), 0.6, ray), MatGlowing);
+
 #undef OBJ
 #undef PARALLELOGRAM
 #undef HALF_BOX
@@ -214,7 +230,7 @@ MaterialSample sample_material(Ray ray, IntersectionResult intersection) {
     ret.emission = vec3(0);
 
     if (intersection.material == MatGlowing) {
-        ret.emission = vec3(1.2, 1.11, 1.05) * 3.0 * max(0.0, dot(intersection.normal, -ray.direction));
+        ret.emission = vec3(1.2, 1.11, 1.05) * 10.0 * max(0.0, dot(intersection.normal, -ray.direction));
         ret.reflection = vec3(0.5);
     } else if (intersection.material == MatGrid) {
         float onGrid = square_grid(intersection.pos.xy, 0.5, 0.02);
@@ -229,6 +245,28 @@ MaterialSample sample_material(Ray ray, IntersectionResult intersection) {
         ret.reflection = vec3(0.75);
     }
 
+    return ret;
+}
+
+/// Modifies a ray when going through
+FogSample uniform_fog(vec3 attenuationScale, float scatteringScale, Ray ray, float originalDistance) {
+    float scatterDistance = -log2(rand_float()) * scatteringScale;
+    float attenuationDistance = min(scatterDistance, originalDistance);
+
+    FogSample ret;
+
+    ret.scattered = step(scatterDistance, originalDistance);
+    ret.scatterPos = ray.origin + ray.direction * attenuationDistance;
+    ret.transmission = exp2(-attenuationDistance / attenuationScale);
+    ret.nextSampleDirection = rand_direction();
+
+    return ret;
+}
+
+FogSample no_fog() {
+    FogSample ret;
+    ret.scattered = 0.0;
+    ret.transmission = vec3(1.0);
     return ret;
 }
 
@@ -256,20 +294,24 @@ vec3 trace_ray(Ray ray) {
 
     for (uint j = 0u; j < DEPTH; ++j) {
         IntersectionResult intersection = ray_scene_intersection(ray);
-        if (intersection.distance >= FAR_AWAY) {
-            color += weight * ambientLight; // Some ambient difuse light
-            break;
-        }
+
+        FogSample fog = uniform_fog(vec3(20.0), 5.0, ray, intersection.distance);
+        //FogSample fog = no_fog();
+
+        if (intersection.distance >= FAR_AWAY && fog.scattered == 0.0)
+            break; // Needed in case there's no fog
 
         MaterialSample material = sample_material(ray, intersection);
 
-        //return 0.5 * material.nextSampleDirection + 0.5;
+        weight *= fog.transmission;
 
-        color += weight * material.emission;
-        weight *= material.reflection;
-        ray.origin = intersection.pos;
-        ray.direction = material.nextSampleDirection;
+        color += mix(weight * material.emission, vec3(0.0), fog.scattered);
+        weight *= mix(material.reflection, vec3(1.0), fog.scattered);
+        ray.origin = mix(intersection.pos, fog.scatterPos, fog.scattered);
+        ray.direction = mix(material.nextSampleDirection, fog.nextSampleDirection, fog.scattered);
     }
+
+    color += weight * ambientLight;
 
     return color;
 }
