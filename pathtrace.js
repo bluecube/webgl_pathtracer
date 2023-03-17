@@ -42,25 +42,6 @@ class Pathtrace {
     }
 
     /**
-     * Create vertex positions buffer prepared for a triangle strip covering the whole viewport
-     * and assign it to `a_position` attribute.
-     * Leaves the vertex position array buffer bound.
-     */
-    createVertexPositions() {
-        const vertexBuffer = this.gl.createBuffer();
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vertexBuffer);
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array([
-            -1, -1, 0, 1,
-             1, -1, 0, 1,
-            -1,  1, 0, 1,
-             1,  1, 0, 1
-        ]), this.gl.STATIC_DRAW);
-        const positionAttributeLocation = this.gl.getAttribLocation(this.program, 'a_position');
-        this.gl.enableVertexAttribArray(positionAttributeLocation);
-        this.gl.vertexAttribPointer(positionAttributeLocation, 4, this.gl.FLOAT, false, 0, 0);
-    }
-
-    /**
      * Calculate camera forward, up and right vectors from a forward vector.
      * Outputs are mutually perpendicular, camera is oriented going up along the Z axis.
      * Forward is scaled by forwardScale, up and right are by upRightScale.
@@ -154,8 +135,6 @@ class Pathtrace {
         this.findUniforms();
 
         const resolutionUniformLocation = this.gl.getUniformLocation(this.program, 'u_resolution');
-
-        this.createVertexPositions();
 
         this.gl.clearColor(0, 0, 0, 0);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
