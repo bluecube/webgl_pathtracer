@@ -164,6 +164,15 @@ IntersectionResult ray_scene_intersection(Ray ray) {
         } \
     }
 
+#define PARALLELOGRAM(o, v1, v2, m) \
+    OBJ(ray_triangle_intersection((o), (v1), (v2), ray), (m)); \
+    OBJ(ray_triangle_intersection((o) + (v1) + (v2), (-v1), (-v2), ray), (m));
+
+#define HALF_BOX(o, v1, v2, v3, m12, m23, m13) \
+    PARALLELOGRAM((o), (v1), (v2), (m12)); \
+    PARALLELOGRAM((o), (v1), (v3), (m13)); \
+    PARALLELOGRAM((o), (v2), (v3), (m23));
+
     // bottom sphere
     OBJ(ray_sphere_intersection(vec3(-1.0, 5, 0.5), 0.5, ray), MatSolidWhite);
 
@@ -173,10 +182,12 @@ IntersectionResult ray_scene_intersection(Ray ray) {
     // floor
     OBJ(ray_plane_intersection(vec3(0.0), vec3(0.0, 0.0, 1.0), ray), MatGrid);
 
-    // a random triangle
-    OBJ(ray_triangle_intersection(vec3(1.0, 4.0, 1.2), vec3(-1.0, 1.0, 0.0), vec3(0.0, 0.0, -1.2), ray), MatRed);
+    // a (half) box
+    HALF_BOX(vec3(1.0, 4.0, 1.2), vec3(-1.0, 1.0, 0.0), vec3(1.0, 1.0, 0.0), vec3(0.0, 0.0, -1.2), MatRed, MatRed, MatRed);
 
 #undef OBJ
+#undef PARALLELOGRAM
+#undef HALF_BOX
 
     return ret;
 }
