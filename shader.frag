@@ -44,7 +44,7 @@ struct MaterialSample {
 /// Generate two arbitrary vectors that form an orthonormal basis with v1.
 /// Based on https://graphics.pixar.com/library/OrthonormalB/paper.pdf
 void orthonormal_basis(vec3 v1, out vec3 v2, out vec3 v3) {
-    float sign = (v1.z >= 0.0 ? 1.0 : 0.0);
+    float sign = (v1.z >= 0.0 ? 1.0 : -1.0);
     float a = -1.0 / (sign + v1.z);
     float b = v1.x * v1.y * a;
     v2 = vec3(1.0 + sign * v1.x * v1.x * a, sign * b, -sign * v1.x);
