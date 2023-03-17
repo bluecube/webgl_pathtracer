@@ -14,6 +14,7 @@ const int MatGlowing = 2;
 const int MatGrid = 3;
 const int MatRed = 4;
 const int MatMirror = 5;
+const int MatDirectionalLight = 6;
 
 uniform vec2 u_resolution;
 uniform vec3 u_cameraOrigin;
@@ -208,6 +209,9 @@ IntersectionResult ray_scene_intersection(Ray ray) {
     // Sphere in the back
     OBJ(ray_sphere_intersection(vec3(0.0, 20.0, 0.6), 0.6, ray), MatGlowing);
 
+    // A light
+    OBJ(ray_triangle_intersection(vec3(-1.0, 1.5, 3.0), vec3(3.0, 1.0, 1.0), vec3(3.0, 0.0, -1.0), ray), MatDirectionalLight);
+
 #undef OBJ
 #undef PARALLELOGRAM
 #undef HALF_BOX
@@ -230,17 +234,20 @@ MaterialSample sample_material(Ray ray, IntersectionResult intersection) {
     ret.emission = vec3(0);
 
     if (intersection.material == MatGlowing) {
-        ret.emission = vec3(1.2, 1.11, 1.05) * 10.0 * max(0.0, dot(intersection.normal, -ray.direction));
+        ret.emission = vec3(1.2, 1.11, 1.05) * 5.0 * max(0.0, dot(intersection.normal, -ray.direction));
         ret.reflection = vec3(0.5);
     } else if (intersection.material == MatGrid) {
         float onGrid = square_grid(intersection.pos.xy, 0.5, 0.02);
-        ret.emission = onGrid * vec3(0.0, 0.1, 0); // The green lines glow a bit!
-        ret.reflection = vec3(0.9);//mix(vec3(0.4), vec3(0.1), onGrid);
+        ret.emission = onGrid * vec3(0.0, 0.2, 0); // The green lines glow a bit!
+        ret.reflection = mix(vec3(0.4), vec3(0.1), onGrid);
     } else if (intersection.material == MatRed) {
         ret.reflection = vec3(0.7, 0.0, 0.0);
     } else if (intersection.material == MatMirror) {
         ret.reflection = vec3(0.9);
         ret.nextSampleDirection = reflect(ray.direction, intersection.normal);
+    } else if (intersection.material == MatDirectionalLight) {
+        ret.emission = vec3(1.2, 1.11, 1.05) * 20.0 * pow(max(0.0, dot(intersection.normal, -ray.direction)), 4.0);
+        ret.reflection = vec3(0.5);
     } else {
         ret.reflection = vec3(0.75);
     }
