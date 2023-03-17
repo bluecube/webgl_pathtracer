@@ -101,17 +101,12 @@ IntersectionResult ray_sphere_intersection(vec3 center, float radius, Ray ray) {
     float b_half = dot(oc, ray.direction);
     float c = dot(oc, oc) - radius * radius;
     float discriminant = b_half * b_half - c;
-    if (discriminant < 0.0) {
-        IntersectionResult ret;
-        ret.distance = FAR_AWAY;
-        return ret;
-    } else {
-        IntersectionResult ret;
-        ret.distance = (-b_half - sqrt(discriminant));
-        ret.pos = ray.origin + ret.distance * ray.direction;
-        ret.normal = (ret.pos - center) / radius;
-        return ret;
-    }
+    float negativeDiscriminant = step(discriminant, 0.0);
+    IntersectionResult ret;
+    ret.distance = mix((-b_half - sqrt(max(0.0, discriminant))), FAR_AWAY, negativeDiscriminant);
+    ret.pos = ray.origin + ret.distance * ray.direction;
+    ret.normal = (ret.pos - center) / radius;
+    return ret;
 }
 
 IntersectionResult ray_plane_intersection(vec3 point, vec3 normal, Ray ray) {
@@ -132,11 +127,6 @@ IntersectionResult ray_triangle_intersection(vec3 vert0, vec3 edge1, vec3 edge2,
 
     float det = dot(edge1, pvec);
 
-    if (det > -1e-6 && det < 1e-6)
-        return ret; // ray is parallell to the plane of the triangle
-        // TODO: This if det is very small, invDet will be very lareg and the u
-        // and v tests will fail later. This branch is probably not necessary
-
     float invDet = 1.0 / det;
 
     // calculate distance from vert0 to ray origin
@@ -144,19 +134,18 @@ IntersectionResult ray_triangle_intersection(vec3 vert0, vec3 edge1, vec3 edge2,
 
     // calculate U parameter and test bounds
     float u = dot(tvec, pvec) * invDet;
-    if (u < 0.0 || u > 1.0)
-        return ret; // TODO: Try adding some combination `step()` of `u` * FAR_AWAY to the result instead of returning early
+    float missed = max(step(u, 0.0), step(1.0, u));
 
     // prepare to test V parameter
     vec3 qvec = cross(tvec, edge1);
 
     // calculate V parameter and test bounds
     float v = dot(ray.direction, qvec) * invDet;
-    if (v < 0.0 || u + v > 1.0)
-        return ret; // TODO: As above, get rid of branch
+    missed = max(missed, step(v, 0.0));
+    missed = max(missed, step(1.0, u + v));
 
     // calculate t, ray intersects triangle
-    ret.distance = dot(edge2, qvec) * invDet;
+    ret.distance = mix(dot(edge2, qvec) * invDet, FAR_AWAY, missed);
     ret.normal = normalize(cross(edge1, edge2));
     ret.pos = ray.origin + ret.distance * ray.direction;
     return ret;
