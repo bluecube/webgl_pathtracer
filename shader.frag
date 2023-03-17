@@ -4,6 +4,7 @@ precision mediump float;
 
 // Sentinel value for not finding any intersection
 const float FAR_AWAY = 1e9;
+const float EPSILON = 1e-6;
 const float TWO_PI = 6.283185307179586;
 const uint SAMPLE_COUNT = 100u;
 const uint DEPTH = 10u;
@@ -168,7 +169,7 @@ IntersectionResult ray_scene_intersection(Ray ray) {
 #define OBJ(intersectionFn, mat) \
     { \
         IntersectionResult objResult = (intersectionFn); \
-        if (objResult.distance > 0.0 && objResult.distance < ret.distance) { \
+        if (objResult.distance > EPSILON && objResult.distance < ret.distance) { \
             ret = objResult; \
             ret.material = (mat); \
         } \
