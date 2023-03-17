@@ -77,6 +77,11 @@ vec2 rand_vec2() {
     return vec2(rand_float(), rand_float());
 }
 
+/// Generate two random floats in <0, 1)
+vec3 rand_vec3() {
+    return vec3(rand_float(), rand_float(), rand_float());
+}
+
 /// Generate a random unit vector on a hemispherical surface centered around +Z.
 /// The random points are cosine weighted.
 /// Based on https://www.rorydriscoll.com/2009/01/07/better-sampling/
@@ -148,6 +153,7 @@ IntersectionResult ray_triangle_intersection(vec3 vert0, vec3 edge1, vec3 edge2,
     // calculate t, ray intersects triangle
     ret.distance = mix(dot(edge2, qvec) * invDet, FAR_AWAY, missed);
     ret.normal = normalize(cross(edge1, edge2));
+    //ret.normal *= -sign(dot(ret.normal, ray.direction)); // This makes the normal work from both sides of the triangle
     ret.pos = ray.origin + ret.distance * ray.direction;
     return ret;
 }
@@ -175,10 +181,10 @@ IntersectionResult ray_scene_intersection(Ray ray) {
     PARALLELOGRAM((o), (v1), (v3), (m31));
 
     // bottom sphere
-    OBJ(ray_sphere_intersection(vec3(-1.0, 5, 0.5), 0.5, ray), MatSolidWhite);
+    OBJ(ray_sphere_intersection(vec3(-1.0, 5, 0.6), 0.6, ray), MatSolidWhite);
 
     // top sphere
-    OBJ(ray_sphere_intersection(vec3(-1.0, 5, 1.5), 0.5, ray), MatGlowing);
+    OBJ(ray_sphere_intersection(vec3(-1.0, 5, 1.8), 0.6, ray), MatGlowing);
 
     // floor
     OBJ(ray_plane_intersection(vec3(0.0), vec3(0.0, 0.0, 1.0), ray), MatGrid);
@@ -208,7 +214,7 @@ MaterialSample sample_material(Ray ray, IntersectionResult intersection) {
     ret.emission = vec3(0);
 
     if (intersection.material == MatGlowing) {
-        ret.emission = vec3(1.2, 1.11, 1.05) * 1.0 * max(0.0, dot(intersection.normal, -ray.direction));
+        ret.emission = vec3(1.2, 1.11, 1.05) * 3.0 * max(0.0, dot(intersection.normal, -ray.direction));
         ret.reflection = vec3(0.5);
     } else if (intersection.material == MatGrid) {
         float onGrid = square_grid(intersection.pos.xy, 0.5, 0.02);
@@ -220,7 +226,7 @@ MaterialSample sample_material(Ray ray, IntersectionResult intersection) {
         ret.reflection = vec3(0.9);
         ret.nextSampleDirection = reflect(ray.direction, intersection.normal);
     } else {
-        ret.reflection = vec3(0.5);
+        ret.reflection = vec3(0.75);
     }
 
     return ret;
@@ -246,14 +252,18 @@ vec3 trace_ray(Ray ray) {
     vec3 color = vec3(0);
     vec3 weight = vec3(1);
 
+    const vec3 ambientLight = vec3(0.2);
+
     for (uint j = 0u; j < DEPTH; ++j) {
         IntersectionResult intersection = ray_scene_intersection(ray);
         if (intersection.distance >= FAR_AWAY) {
-            color += weight * vec3(0.2); // Some ambient difuse light
+            color += weight * ambientLight; // Some ambient difuse light
             break;
         }
 
         MaterialSample material = sample_material(ray, intersection);
+
+        //return 0.5 * material.nextSampleDirection + 0.5;
 
         color += weight * material.emission;
         weight *= material.reflection;
