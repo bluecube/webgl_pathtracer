@@ -21,6 +21,7 @@ uniform vec3 u_cameraOrigin;
 uniform vec3 u_cameraForward;
 uniform vec3 u_cameraUp;
 uniform vec3 u_cameraRight;
+uniform uint u_seed;
 out vec4 o_fragColor;
 
 uint rngState;
@@ -334,7 +335,9 @@ vec3 render_pixel(vec2 pixelPosition) {
 }
 
 void main() {
-    seed_pcg(uint(gl_FragCoord.x) + uint(gl_FragCoord.y) * uint(u_resolution.x));
+    uint seed = uint(gl_FragCoord.x) + uint(gl_FragCoord.y) * uint(u_resolution.x);
+    seed ^= u_seed;
+    seed_pcg(seed);
 
     o_fragColor = vec4(render_pixel(gl_FragCoord.xy), 1.0);
 }

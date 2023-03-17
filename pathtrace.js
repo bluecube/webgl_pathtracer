@@ -99,6 +99,16 @@ class Pathtrace {
         this.gl.uniform3fv(this.uniformLoc.get("u_cameraRight"), right);
     }
 
+    /**
+     * Set the seed value for random generation in the kernel.
+     * This is really not critical at all, so we just use Math.random(), hopefully
+     * extended to 32bit.
+     */
+    setupSeedUniform() {
+        const seed = (Math.random() * 2**32) >>> 0;
+        this.gl.uniform1ui(this.uniformLoc.get("u_seed"), seed);
+    }
+
     render() {
         const [w, h] = this.getCanvasSize();
         this.canvas.width = w;
@@ -112,6 +122,7 @@ class Pathtrace {
 
         this.gl.viewport(0, 0, w, h);
         this.setupCameraUniforms(w, h, [0, 0, 1.8], ...cameraParams);
+        this.setupSeedUniform();
 
         const startTime = performance.now();
         this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
