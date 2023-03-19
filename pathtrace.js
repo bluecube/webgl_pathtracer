@@ -145,8 +145,6 @@ class Pathtrace {
         this.program = this.createProgram([vertexShader, fragmentShader]);
         this.findUniforms();
 
-        const resolutionUniformLocation = this.gl.getUniformLocation(this.program, 'u_resolution');
-
         this.gl.clearColor(0, 0, 0, 0);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
 
