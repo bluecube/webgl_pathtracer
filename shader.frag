@@ -6,7 +6,7 @@ precision mediump float;
 const float FAR_AWAY = 1e9;
 const float EPSILON = 1e-6;
 const float TWO_PI = 6.283185307179586;
-const uint SAMPLE_COUNT = 20u;
+const uint SAMPLE_COUNT = 50u;
 const uint DEPTH = 20u;
 
 const int MatSolidWhite = 1;

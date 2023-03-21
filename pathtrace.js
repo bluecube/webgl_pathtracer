@@ -215,7 +215,7 @@ class Pathtrace {
         this.render(this.textures[sourceTextureIndex], this.textures[targetTextureIndex]);
         this.display(this.textures[targetTextureIndex]);
 
-        if (this.iterationNumber < 200)
+        if (this.iterationNumber < 100)
             this.request_frame();
     }
 
