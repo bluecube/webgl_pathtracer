@@ -71,12 +71,18 @@ class Pathtrace {
     }
 
     /**
-     * Return a pair of width and height, as close as possible to the actual canvas pixel size.
+     * Return a pair of width and height.
+     * Returns CSS pixels, because they correspond to the "useful" resolution better
+     * than real pixels (on Android!)
      */
     getCanvasSize() {
-        const dpr = window.devicePixelRatio;
+        // as close as possible to the actual canvas pixel size
+        //const dpr = window.devicePixelRatio;
+        //const {width, height} = this.canvas.getBoundingClientRect();
+        //return [Math.round(width * dpr), Math.round(height * dpr)];
+
         const {width, height} = this.canvas.getBoundingClientRect();
-        return [Math.round(width * dpr), Math.round(height * dpr)];
+        return [width, height];
     }
 
     /**
