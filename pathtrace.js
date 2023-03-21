@@ -159,7 +159,6 @@ class Pathtrace {
         this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
         this.gl.finish();
         const elapsed = performance.now() - startTime;
-        console.log(`${displayTitle} iteration ${this.iterationNumber} took ${elapsed} milliseconds`);
         return elapsed;
     }
 
@@ -181,7 +180,9 @@ class Pathtrace {
         this.gl.bindTexture(this.gl.TEXTURE_2D, inputTexture);
         this.gl.uniform1i(this.displayUniforms.get("u_previousIterTexture"), 0);
 
-        return this.runProgram(this.renderProgram, "Rendering");
+        const elapsed = this.runProgram(this.renderProgram);
+        console.log(`Rendering iteration ${this.iterationNumber} took ${elapsed} milliseconds`);
+        return elapsed;
     }
 
     display(displayTexture) {
@@ -195,7 +196,7 @@ class Pathtrace {
         this.gl.bindTexture(this.gl.TEXTURE_2D, displayTexture);
         this.gl.uniform1i(this.displayUniforms.get("u_texture"), 0);
 
-        return this.runProgram(this.displayProgram, "Displaying");
+        return this.runProgram(this.displayProgram);
     }
 
     run_iteration(timestamp) {
