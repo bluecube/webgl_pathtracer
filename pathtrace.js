@@ -1,5 +1,7 @@
 "use strict";
 
+const iterationCount = 500;
+
 function downloadFile(f) {
     return fetch(f).then(result => result.text());
 }
@@ -191,7 +193,8 @@ class Pathtrace {
         this.gl.uniform1i(this.displayUniforms.get("u_previousIterTexture"), 0);
 
         const elapsed = this.runProgram(this.renderProgram);
-        console.log(`Rendering iteration ${this.iterationNumber} took ${elapsed} milliseconds`);
+        if (this.iterationNumber % 50 == 0)
+            console.log(`Rendering iteration ${this.iterationNumber}/${iterationCount} took ${elapsed} milliseconds`);
         return elapsed;
     }
 
@@ -210,12 +213,6 @@ class Pathtrace {
     }
 
     run_iteration(timestamp) {
-        if (this.iterationNumber != 0 && timestamp < this.lastIterationTimestamp + 100) {
-            /// Artificially slowing down the render so that we don't load the 
-            // GPU too much and have it nicely animated
-            this.request_frame();
-            return;
-        }
         this.lastIterationTimestamp = timestamp;
 
         this.iterationNumber += 1;
@@ -226,7 +223,7 @@ class Pathtrace {
         this.render(this.textures[sourceTextureIndex], this.textures[targetTextureIndex]);
         this.display(this.textures[targetTextureIndex]);
 
-        if (this.iterationNumber < 100)
+        if (this.iterationNumber < iterationCount)
             this.request_frame();
     }
 
