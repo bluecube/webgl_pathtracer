@@ -25,7 +25,7 @@ uniform vec3 u_cameraRight;
 uniform uint u_seed;
 uniform uint u_sampleCount;
 
-uniform uint u_iterNumber;
+uniform float u_iterationUpdateWeight;
 uniform sampler2D u_previousIterTexture;
 
 out vec4 o_fragColor;
@@ -344,15 +344,13 @@ void main() {
     uint seed = uint(gl_FragCoord.y);
     seed *= uint(u_resolution.x);
     seed += uint(gl_FragCoord.x);
-    seed *= uint(u_resolution.y);
-    seed += u_iterNumber;
     seed ^= u_seed;
 
     seed_pcg(seed);
 
     vec3 rendered = render_pixel(gl_FragCoord.xy);
     vec4 previousIter = texture(u_previousIterTexture, gl_FragCoord.xy / u_resolution);
-    vec3 averaged = previousIter.xyz + (rendered - previousIter.xyz) / float(u_iterNumber);
+    vec3 averaged = previousIter.xyz + (rendered - previousIter.xyz) * u_iterationUpdateWeight;
 
     o_fragColor = vec4(averaged, 1.0);
 }

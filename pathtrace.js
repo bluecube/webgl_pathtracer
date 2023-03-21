@@ -1,6 +1,7 @@
 "use strict";
 
-const iterationCount = 500;
+const totalSampleCount = 5000; // How many samples per pixel to calculate
+const iterationSampleCount = 5; // How many samples per pixel to calculate per iteration
 
 function downloadFile(f) {
     return fetch(f).then(result => result.text());
@@ -163,7 +164,8 @@ class Pathtrace {
 
         this.createTextures();
 
-        this.iterationNumber = 0;
+        this.samplesProcessed = 0;
+        this.sourceTextureIndex = 0;
 
         this.cameraParams = Pathtrace.calculateCamera(
             [0, 0, 1.8], // Camera origin
@@ -188,9 +190,12 @@ class Pathtrace {
     render(inputTexture, outputTexture) {
         this.gl.useProgram(this.renderProgram);
 
+        this.samplesProcessed += iterationSampleCount;
+
+        this.setupSeedUniform();
         this.setupCameraUniforms(...this.cameraParams);
-        this.gl.uniform1ui(this.renderUniforms.get("u_iterNumber"), this.iterationNumber);
-        this.gl.uniform1ui(this.renderUniforms.get("u_sampleCount"), 5);
+        this.gl.uniform1f(this.renderUniforms.get("u_iterationUpdateWeight"), iterationSampleCount / this.samplesProcessed);
+        this.gl.uniform1ui(this.renderUniforms.get("u_sampleCount"), iterationSampleCount);
 
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.fb);
         this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, outputTexture, 0);
@@ -200,8 +205,8 @@ class Pathtrace {
         this.gl.uniform1i(this.displayUniforms.get("u_previousIterTexture"), 0);
 
         const elapsed = this.runProgram(this.renderProgram);
-        if (this.iterationNumber % 50 == 0)
-            console.log(`Rendering iteration ${this.iterationNumber}/${iterationCount} took ${elapsed} milliseconds`);
+        if (Math.floor(this.samplesProcessed / 100) != Math.floor((this.samplesProcessed - iterationSampleCount) / 100))
+            console.log(`${this.samplesProcessed}/${totalSampleCount}, ${elapsed / iterationSampleCount} ms/(sample*screen), ${1e6 * elapsed / (iterationSampleCount * this.width * this.height)} ns/sample`);
         return elapsed;
     }
 
@@ -222,15 +227,14 @@ class Pathtrace {
     run_iteration(timestamp) {
         this.lastIterationTimestamp = timestamp;
 
-        this.iterationNumber += 1;
+        const targetTextureIndex = 1 - this.sourceTextureIndex;
 
-        const sourceTextureIndex = this.iterationNumber & 1;
-        const targetTextureIndex = 1 - sourceTextureIndex;
-
-        this.render(this.textures[sourceTextureIndex], this.textures[targetTextureIndex]);
+        this.render(this.textures[this.sourceTextureIndex], this.textures[targetTextureIndex]);
         this.display(this.textures[targetTextureIndex]);
 
-        if (this.iterationNumber < iterationCount)
+        this.sourceTextureIndex = targetTextureIndex;
+
+        if (this.samplesProcessed < totalSampleCount)
             this.request_frame();
     }
 
