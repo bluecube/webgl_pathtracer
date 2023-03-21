@@ -252,7 +252,7 @@ MaterialSample sample_material(Ray ray, IntersectionResult intersection) {
         ret.reflection = vec3(0.9);
         ret.nextSampleDirection = reflect(ray.direction, intersection.normal);
     } else if (intersection.material == MatDirectionalLight) {
-        ret.emission = vec3(1.2, 1.11, 1.05) * 20.0 * pow(max(0.0, dot(intersection.normal, -ray.direction)), 4.0);
+        ret.emission = vec3(1.2, 1.11, 1.05) * 30.0 * pow(max(0.0, dot(intersection.normal, -ray.direction)), 4.0);
         ret.reflection = vec3(0.5);
     } else {
         ret.reflection = vec3(0.75);
