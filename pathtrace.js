@@ -82,7 +82,7 @@ class Pathtrace {
         //return [Math.round(width * dpr), Math.round(height * dpr)];
 
         const {width, height} = this.canvas.getBoundingClientRect();
-        return [width, height];
+        return [Math.round(width), Math.round(height)];
     }
 
     /**
