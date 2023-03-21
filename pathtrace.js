@@ -138,6 +138,8 @@ class Pathtrace {
 
         this.canvas = await Pathtrace.findCanvas();
         this.gl = this.canvas.getContext('webgl2');
+        if (this.gl === null)
+            throw Error("Couldn't get webgl2 context");
 
         const vertexShader = this.createShader(this.gl.VERTEX_SHADER, await vertexShaderPromise);
         const fragmentShader = this.createShader(this.gl.FRAGMENT_SHADER, await fragmentShaderPromise);
