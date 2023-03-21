@@ -190,6 +190,7 @@ class Pathtrace {
 
         this.setupCameraUniforms(...this.cameraParams);
         this.gl.uniform1ui(this.renderUniforms.get("u_iterNumber"), this.iterationNumber);
+        this.gl.uniform1ui(this.renderUniforms.get("u_sampleCount"), 5);
 
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.fb);
         this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, outputTexture, 0);

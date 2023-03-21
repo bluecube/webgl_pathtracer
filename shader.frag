@@ -7,7 +7,6 @@ precision highp int;
 const float FAR_AWAY = 1e9;
 const float EPSILON = 1e-6;
 const float TWO_PI = 6.283185307179586;
-const uint SAMPLE_COUNT = 5u;
 const uint DEPTH = 20u;
 
 const int MatSolidWhite = 1;
@@ -24,6 +23,7 @@ uniform vec3 u_cameraUp;
 uniform vec3 u_cameraRight;
 
 uniform uint u_seed;
+uniform uint u_sampleCount;
 
 uniform uint u_iterNumber;
 uniform sampler2D u_previousIterTexture;
@@ -333,11 +333,11 @@ vec3 trace_ray(Ray ray) {
 /// Trace all samples of the single pixel, return final color
 vec3 render_pixel(vec2 pixelPosition) {
     vec3 color = vec3(0.0);
-    for (uint i = 0u; i < SAMPLE_COUNT; ++i) {
+    for (uint i = 0u; i < u_sampleCount; ++i) {
         Ray ray = make_camera_ray(pixelPosition);
         color += trace_ray(ray);
     }
-    return color / float(SAMPLE_COUNT);
+    return color / float(u_sampleCount);
 }
 
 void main() {
