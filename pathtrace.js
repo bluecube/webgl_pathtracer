@@ -143,6 +143,11 @@ class Pathtrace {
 
     restart() {
         const [w, h] = this.getCanvasSize();
+        if (w == this.width && h == this.height) {
+            console.log("Unnecessary restart, this should not happen")
+            return;
+        }
+        console.log(`Resized to ${w}x${h}`)
         this.width = w;
         this.height = h;
         this.canvas.width = w;
