@@ -1,6 +1,6 @@
 "use strict";
 
-const totalSampleCount = 5000; // How many samples per pixel to calculate
+const totalSampleCount = 2000; // How many samples per pixel to calculate
 const iterationSampleCount = 5; // How many samples per pixel to calculate per iteration
 
 function downloadFile(f) {
