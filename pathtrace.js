@@ -46,10 +46,11 @@ class Pathtrace {
      * Outputs are mutually perpendicular, camera is oriented going up along the Z axis.
      * Forward is scaled by forwardScale, up and right are by upRightScale.
      */
-    static calculateCamera(forward, forwardScale, upRightScale) {
+    static calculateCamera(origin, forward, forwardScale, upRightScale) {
         const right = normalize(crossProduct(forward, [0, 0, 1]));
         const up = normalize(crossProduct(right, forward));
         return [
+            origin,
             scale(normalize(forward), forwardScale),
             scale(up, upRightScale),
             scale(right, upRightScale)
@@ -93,8 +94,8 @@ class Pathtrace {
     /**
      * Set camera control vectors in the uniform attributes
      */
-    setupCameraUniforms(w, h, origin, forward, up, right) {
-        this.gl.uniform2f(this.renderUniforms.get("u_resolution"), w, h);
+    setupCameraUniforms(origin, forward, up, right) {
+        this.gl.uniform2f(this.renderUniforms.get("u_resolution"), this.width, this.height);
         this.gl.uniform3fv(this.renderUniforms.get("u_cameraOrigin"), origin);
         this.gl.uniform3fv(this.renderUniforms.get("u_cameraForward"), forward);
         this.gl.uniform3fv(this.renderUniforms.get("u_cameraUp"), up);
@@ -149,7 +150,14 @@ class Pathtrace {
 
         this.iterationNumber = 0;
 
-        this.run_iteration();
+        this.cameraParams = Pathtrace.calculateCamera(
+            [0, 0, 1.8], // Camera origin
+            [0, 1, -0.1], // Forward direction
+            1.5, // Forward scale (=focal length)
+            1 / Math.min(this.width, this.height)
+        );
+
+        this.request_frame();
     }
 
     runProgram(program, displayTitle) {
@@ -165,12 +173,7 @@ class Pathtrace {
     render(inputTexture, outputTexture) {
         this.gl.useProgram(this.renderProgram);
 
-        const cameraParams = Pathtrace.calculateCamera(
-            [0, 1, -0.1],
-            1.5,
-            1 / Math.min(this.width, this.height)
-        );
-        this.setupCameraUniforms(this.width, this.height, [0, 0, 1.8], ...cameraParams);
+        this.setupCameraUniforms(...this.cameraParams);
         this.gl.uniform1ui(this.renderUniforms.get("u_iterNumber"), this.iterationNumber);
 
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.fb);
