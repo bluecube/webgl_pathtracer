@@ -335,7 +335,10 @@ vec3 render_pixel(vec2 pixelPosition) {
 }
 
 void main() {
-    uint seed = uint(gl_FragCoord.x) + uint(gl_FragCoord.y) * uint(u_resolution.x);
+    uint seed = uint(gl_FragCoord.y);
+    seed *= uint(u_resolution.x);
+    seed += uint(gl_FragCoord.x);
+    seed *= uint(u_resolution.y);
     seed ^= u_seed;
     seed_pcg(seed);
 
