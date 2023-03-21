@@ -134,6 +134,10 @@ class Pathtrace {
         }
     }
 
+    request_frame() {
+        window.requestAnimationFrame(this.run_iteration.bind(this));
+    }
+
     restart() {
         const [w, h] = this.getCanvasSize();
         this.width = w;
@@ -142,6 +146,8 @@ class Pathtrace {
         this.canvas.height = h;
 
         this.createTextures();
+
+        this.iterationNumber = 0;
 
         this.run_iteration();
     }
@@ -166,6 +172,7 @@ class Pathtrace {
             1 / Math.min(this.width, this.height)
         );
         this.setupCameraUniforms(this.width, this.height, [0, 0, 1.8], ...cameraParams);
+        this.gl.uniform1ui(this.renderUniforms.get("u_iterNumber"), this.iterationNumber);
 
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.fb);
         this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, outputTexture, 0);
@@ -191,12 +198,25 @@ class Pathtrace {
         return this.runProgram(this.displayProgram, "Displaying");
     }
 
-    run_iteration() {
+    run_iteration(timestamp) {
+        if (this.iterationNumber != 0 && timestamp < this.lastIterationTimestamp + 100) {
+            /// Artificially slowing down the render so that we don't load the 
+            // GPU too much and have it nicely animated
+            this.request_frame();
+            return;
+        }
+        this.lastIterationTimestamp = timestamp;
+
+        this.iterationNumber += 1;
+
         const sourceTextureIndex = this.iterationNumber & 1;
         const targetTextureIndex = 1 - sourceTextureIndex;
 
         this.render(this.textures[sourceTextureIndex], this.textures[targetTextureIndex]);
         this.display(this.textures[targetTextureIndex]);
+
+        if (this.iterationNumber < 200)
+            this.request_frame();
     }
 
     async main() {

@@ -6,7 +6,7 @@ precision mediump float;
 const float FAR_AWAY = 1e9;
 const float EPSILON = 1e-6;
 const float TWO_PI = 6.283185307179586;
-const uint SAMPLE_COUNT = 100u;
+const uint SAMPLE_COUNT = 20u;
 const uint DEPTH = 20u;
 
 const int MatSolidWhite = 1;
@@ -21,7 +21,12 @@ uniform vec3 u_cameraOrigin;
 uniform vec3 u_cameraForward;
 uniform vec3 u_cameraUp;
 uniform vec3 u_cameraRight;
+
 uniform uint u_seed;
+
+uniform uint u_iterNumber;
+uniform sampler2D u_previousIterTexture;
+
 out vec4 o_fragColor;
 
 uint rngState;
@@ -339,8 +344,14 @@ void main() {
     seed *= uint(u_resolution.x);
     seed += uint(gl_FragCoord.x);
     seed *= uint(u_resolution.y);
+    seed += u_iterNumber;
     seed ^= u_seed;
+
     seed_pcg(seed);
 
-    o_fragColor = vec4(render_pixel(gl_FragCoord.xy), 1.0);
+    vec3 rendered = render_pixel(gl_FragCoord.xy);
+    vec4 previousIter = texture(u_previousIterTexture, gl_FragCoord.xy / u_resolution);
+    vec3 averaged = previousIter.xyz + (rendered - previousIter.xyz) / float(u_iterNumber);
+
+    o_fragColor = vec4(averaged, 1.0);
 }
