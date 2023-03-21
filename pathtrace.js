@@ -1,3 +1,5 @@
+"use strict";
+
 function downloadFile(f) {
     return fetch(f).then(result => result.text());
 }
@@ -260,5 +262,5 @@ class Pathtrace {
 
 }
 
-pt = new Pathtrace();
+var pt = new Pathtrace();
 pt.main();
