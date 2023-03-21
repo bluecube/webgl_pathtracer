@@ -33,12 +33,12 @@ class Pathtrace {
     }
 
     createProgram(shaders) {
-        const program = this.gl.createProgram();
-        shaders.forEach(s => this.gl.attachShader(program, s));
-        this.gl.linkProgram(program);
-        if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS))
-            throw Error('Program linking error: ' + this.gl.getProgramInfoLog(program));
-        return program;
+        const renderProgram = this.gl.createProgram();
+        shaders.forEach(s => this.gl.attachShader(renderProgram, s));
+        this.gl.linkProgram(renderProgram);
+        if (!this.gl.getProgramParameter(renderProgram, this.gl.LINK_STATUS))
+            throw Error('Program linking error: ' + this.gl.getProgramInfoLog(renderProgram));
+        return renderProgram;
     }
 
     /**
@@ -76,27 +76,29 @@ class Pathtrace {
 
     /**
      * Finds all active uniforms in the program and collects their locations in
-     * uniformLoc map.
+     * renderUniforms map.
      */
-    findUniforms(names) {
-        const count = this.gl.getProgramParameter(this.program, this.gl.ACTIVE_UNIFORMS);
-        this.uniformLoc = new Map();
+    findUniforms(program) {
+        const count = this.gl.getProgramParameter(program, this.gl.ACTIVE_UNIFORMS);
+        var ret = new Map();
 
         for (let i = 0; i < count; i++) {
-            const name = this.gl.getActiveUniform(this.program, i).name;
-            this.uniformLoc.set(name, this.gl.getUniformLocation(this.program, name));
+            const name = this.gl.getActiveUniform(program, i).name;
+            ret.set(name, this.gl.getUniformLocation(program, name));
         }
+
+        return ret;
     }
 
     /**
      * Set camera control vectors in the uniform attributes
      */
     setupCameraUniforms(w, h, origin, forward, up, right) {
-        this.gl.uniform2f(this.uniformLoc.get("u_resolution"), w, h);
-        this.gl.uniform3fv(this.uniformLoc.get("u_cameraOrigin"), origin);
-        this.gl.uniform3fv(this.uniformLoc.get("u_cameraForward"), forward);
-        this.gl.uniform3fv(this.uniformLoc.get("u_cameraUp"), up);
-        this.gl.uniform3fv(this.uniformLoc.get("u_cameraRight"), right);
+        this.gl.uniform2f(this.renderUniforms.get("u_resolution"), w, h);
+        this.gl.uniform3fv(this.renderUniforms.get("u_cameraOrigin"), origin);
+        this.gl.uniform3fv(this.renderUniforms.get("u_cameraForward"), forward);
+        this.gl.uniform3fv(this.renderUniforms.get("u_cameraUp"), up);
+        this.gl.uniform3fv(this.renderUniforms.get("u_cameraRight"), right);
     }
 
     /**
@@ -106,62 +108,130 @@ class Pathtrace {
      */
     setupSeedUniform() {
         const seed = (Math.random() * 2**32) >>> 0;
-        this.gl.uniform1ui(this.uniformLoc.get("u_seed"), seed);
+        this.gl.uniform1ui(this.renderUniforms.get("u_seed"), seed);
     }
 
-    render() {
+    createTextures(w, h) {
+        // First delete old textures if there are any
+        this.textures.forEach(texture => this.gl.deleteTexture(texture));
+        this.textures = []
+
+        for (var i = 0; i < 2; i++) {
+            const texture = this.gl.createTexture();
+            this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+            this.gl.texImage2D(
+                this.gl.TEXTURE_2D, 0 /*level*/, this.gl.RGBA32F,
+                this.width, this.height, 0,
+                this.gl.RGBA, this.gl.FLOAT, null
+            );
+
+            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
+            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
+            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+
+            this.textures.push(texture);
+        }
+    }
+
+    restart() {
         const [w, h] = this.getCanvasSize();
+        this.width = w;
+        this.height = h;
         this.canvas.width = w;
         this.canvas.height = h;
 
-        const cameraParams = Pathtrace.calculateCamera(
-            [0, 1, -0.1],
-            1.5,
-            1 / Math.min(w, h)
-        );
+        this.createTextures();
 
-        this.gl.viewport(0, 0, w, h);
-        this.setupCameraUniforms(w, h, [0, 0, 1.8], ...cameraParams);
-        this.setupSeedUniform();
+        this.run_iteration();
+    }
+
+    runProgram(program, displayTitle) {
+        this.gl.viewport(0, 0, this.width, this.height);
 
         const startTime = performance.now();
         this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
         this.gl.finish();
         const elapsed = performance.now() - startTime;
-        console.log(`Render at ${w}x${h} took ${elapsed} milliseconds`);
+        console.log(`${displayTitle} iteration ${this.iterationNumber} took ${elapsed} milliseconds`);
         return elapsed;
+    }
+
+    render(inputTexture, outputTexture) {
+        this.gl.useProgram(this.renderProgram);
+
+        const cameraParams = Pathtrace.calculateCamera(
+            [0, 1, -0.1],
+            1.5,
+            1 / Math.min(this.width, this.height)
+        );
+        this.setupCameraUniforms(this.width, this.height, [0, 0, 1.8], ...cameraParams);
+
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.fb);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, outputTexture, 0);
+
+        this.gl.activeTexture(this.gl.TEXTURE0);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, inputTexture);
+        this.gl.uniform1i(this.displayUniforms.get("u_previousIterTexture"), 0);
+
+        return this.runProgram(this.renderProgram, "Rendering");
+    }
+
+    display(displayTexture) {
+        this.gl.useProgram(this.displayProgram);
+
+        this.gl.uniform2f(this.displayUniforms.get("u_resolution"), this.width, this.height);
+
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+
+        this.gl.activeTexture(this.gl.TEXTURE0);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, displayTexture);
+        this.gl.uniform1i(this.displayUniforms.get("u_texture"), 0);
+
+        return this.runProgram(this.displayProgram, "Displaying");
+    }
+
+    run_iteration() {
+        const sourceTextureIndex = this.iterationNumber & 1;
+        const targetTextureIndex = 1 - sourceTextureIndex;
+
+        this.render(this.textures[sourceTextureIndex], this.textures[targetTextureIndex]);
+        this.display(this.textures[targetTextureIndex]);
     }
 
     async main() {
         let vertexShaderPromise = downloadFile("shader.vert");
         let fragmentShaderPromise = downloadFile("shader.frag");
+        let displayShaderPromise = downloadFile("display.frag");
 
         this.canvas = await Pathtrace.findCanvas();
         this.gl = this.canvas.getContext('webgl2');
         if (this.gl === null)
             throw Error("Couldn't get webgl2 context");
 
-        const vertexShader = this.createShader(this.gl.VERTEX_SHADER, await vertexShaderPromise);
-        const fragmentShader = this.createShader(this.gl.FRAGMENT_SHADER, await fragmentShaderPromise);
+        if (this.gl.getExtension("EXT_color_buffer_float") === null)
+            throw Error("Couldn't get EXT_color_buffer_float extension");
 
-        this.program = this.createProgram([vertexShader, fragmentShader]);
-        this.findUniforms();
+        const vertexShader = this.createShader(this.gl.VERTEX_SHADER, await vertexShaderPromise);
+
+        const displayShader = this.createShader(this.gl.FRAGMENT_SHADER, await displayShaderPromise);
+        this.displayProgram = this.createProgram([vertexShader, displayShader]);
+        this.displayUniforms = this.findUniforms(this.displayProgram);
+
+        const fragmentShader = this.createShader(this.gl.FRAGMENT_SHADER, await fragmentShaderPromise);
+        this.renderProgram = this.createProgram([vertexShader, fragmentShader]);
+        this.renderUniforms = this.findUniforms(this.renderProgram);
+
+        this.fb = this.gl.createFramebuffer();
 
         this.gl.clearColor(0, 0, 0, 0);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
 
-        this.gl.useProgram(this.program);
+        this.textures = []
 
-        if (0) {
-            var best = 1e9;
-            const count = 20;
-            for (var i = 0; i < count; i++)
-                best = Math.min(this.render(), best);
-            console.log(`Best render out of ${count} took ${best} milliseconds`);
-        } else
-            this.render();
+        this.restart();
 
-        window.addEventListener("resize", this.render.bind(this));
+        window.addEventListener("resize", this.restart.bind(this));
     }
 
 }
