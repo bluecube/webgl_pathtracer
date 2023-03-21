@@ -1,6 +1,7 @@
 #version 300 es
 
 precision highp float;
+precision highp int;
 
 // Sentinel value for not finding any intersection
 const float FAR_AWAY = 1e9;
